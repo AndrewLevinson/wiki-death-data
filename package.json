@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "download-year-pages": "node scripts/download-year-pages.js"
+    "download-year-pages": "node scripts/download-year-pages.js",
+    "parse-year-pages": "node scripts/parse-year-pages.js"
   },
   "keywords": [],
   "author": "",
