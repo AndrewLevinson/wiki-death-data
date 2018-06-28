@@ -1,6 +1,7 @@
 const fs = require("fs");
 const mkdirp = require("mkdirp");
 const cheerio = require("cheerio");
+const d3 = require("d3");
 
 const inputDir = "./output/year-pages";
 const months = [
@@ -47,8 +48,24 @@ function parseLi({ sel, year }) {
         .attr("title");
     }
 
+    // description
+    const text = sel.text();
+    const sentence =
+      numATags === 3 ? text.replace(`${date_of_death} - `, "") : text;
+
+    const withoutName = sentence.replace(`${name}, `, "");
+    const bIndex = withoutName.lastIndexOf(" (b.");
+    const description = withoutName.substring(0, bIndex);
+
     const year_of_death = year;
-    return { name, link, year_of_birth, year_of_death, date_of_death };
+    return {
+      name,
+      link,
+      year_of_birth,
+      year_of_death,
+      date_of_death,
+      description
+    };
   }
 
   return null;
@@ -57,22 +74,32 @@ function parseLi({ sel, year }) {
 function extractPeople(file) {
   const html = fs.readFileSync(`${inputDir}/${file}`, "utf-8");
   const $ = cheerio.load(html);
-  const parent = $(`#${months[0]}_2`).parent();
-  const ul = parent.nextAll("ul").eq(0);
-  const year = file.replace(".html", "");
 
-  const output = [];
-  ul.find("li").each((i, el) => {
-    const person = parseLi({ sel: $(el), year });
-    if (person) output.push(person);
+  const peopleByMonth = months.map(month => {
+    const parent = $(`#${month}_2`).parent();
+    const ul = parent.nextAll("ul").eq(0);
+    const year = file.replace(".html", "");
+
+    const output = [];
+    ul.find("li").each((i, el) => {
+      const person = parseLi({ sel: $(el), year });
+      if (person) output.push(person);
+    });
+    return output;
   });
-  console.log(output);
+
+  return [].concat(...peopleByMonth);
 }
 
 function init() {
   const files = fs.readdirSync(inputDir).filter(d => d.includes(".html"));
 
-  files.slice(0, 1).map(extractPeople);
+  const peopleByYear = files.map(extractPeople);
+  const flatPeople = [].concat(...peopleByYear);
+  const output = d3.csvFormat(flatPeople);
+
+  mkdirp("./output");
+  fs.writeFileSync("./output/all-deaths-2015-2018.csv", output);
 }
 
 init();
