@@ -13,5 +13,6 @@ function download(year) {
       fs.writeFileSync(`${outputDir}/${year}.html`, response);
     });
 }
+
 mkdirp(outputDir);
 years.forEach(download);
