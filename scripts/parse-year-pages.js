@@ -3,6 +3,7 @@ const mkdirp = require("mkdirp");
 const cheerio = require("cheerio");
 const d3 = require("d3");
 
+const START = { month: 6, year: 2015 };
 const inputDir = "./output/year-pages";
 const months = [
   "January",
@@ -26,7 +27,7 @@ function checkForDate(str) {
   return isMonth && isDate;
 }
 
-function parseLi({ sel, year }) {
+function parseLi({ sel, year, monthIndex }) {
   const isPerson = !sel.find("ul").length;
 
   if (isPerson) {
@@ -54,42 +55,41 @@ function parseLi({ sel, year }) {
         .attr("title");
     }
 
-    // description
-    const text = sel.text();
-    const sentence = isDate ? text.replace(`${date_of_death} – `, "") : text;
-
-    const withoutName = sentence.replace(`${name}, `, "");
-    const bIndex = withoutName.lastIndexOf(" (b.");
-
-    const description = withoutName.substring(0, bIndex);
-
     const year_of_death = year;
+    const monthPad = d3.format("02")(monthIndex);
+    const datePad = d3.format("02")(date_of_death.split(" ")[1]);
+    const timestamp_of_death = `${year}${monthPad}${datePad}`;
     return {
-      name,
       link,
+      name,
       year_of_birth,
       year_of_death,
       date_of_death,
-      description
+      timestamp_of_death
     };
   }
 
   return null;
 }
 
+function checkValidStart(year, monthIndex) {
+  if (+year === START.year && monthIndex < START.month) return false;
+  return true;
+}
+
 function extractPeople(file) {
   const html = fs.readFileSync(`${inputDir}/${file}`, "utf-8");
   const $ = cheerio.load(html);
 
-  const peopleByMonth = months.map(month => {
+  const peopleByMonth = months.map((month, monthIndex) => {
     const parent = $(`#${month}_2`).parent();
     const ul = parent.nextAll("ul").eq(0);
     const year = file.replace(".html", "");
 
     const output = [];
     ul.find("li").each((i, el) => {
-      const person = parseLi({ sel: $(el), year });
-      if (person) output.push(person);
+      const person = parseLi({ sel: $(el), year, monthIndex });
+      if (person && checkValidStart(year, monthIndex)) output.push(person);
     });
     return output;
   });
@@ -102,6 +102,7 @@ function init() {
 
   const peopleByYear = files.map(extractPeople);
   const flatPeople = [].concat(...peopleByYear);
+
   const output = d3.csvFormat(flatPeople);
 
   mkdirp("./output");
